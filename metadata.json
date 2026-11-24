@@ -1,0 +1,6 @@
+{
+  "name": "MarketSphere — Active Supermarket Kabale",
+  "description": "Integrated e-commerce storefront, simulated mobile money checkout, PDF receipts, order tracking, and retail analytics platform for Active Supermarket Kabale.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
