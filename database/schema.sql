@@ -1,9 +1,3 @@
--- ============================================================================
--- MarketSphere — Active Supermarket Kabale
--- Complete Normalised Relational SQL Schema (PostgreSQL / Cloud SQL)
--- Includes Foreign Key Constraints, Unique Constraints, CHECK Constraints,
--- Timestamps, and Performance Indexes
--- ============================================================================
 
 -- 1. USERS & ROLE-BASED ACCESS CONTROL
 CREATE TABLE IF NOT EXISTS users (
