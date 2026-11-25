@@ -22,9 +22,9 @@ export function formatDateTime(dateValue: string | Date): string {
 }
 
 export const PAYMENT_METHOD_LABELS: Record<string, string> = {
-  mtn_momo: 'MTN Mobile Money (Demo)',
-  airtel_money: 'Airtel Money (Demo)',
-  card_demo: 'Visa / Mastercard (Demo)',
+  mtn_momo: 'MTN Mobile Money',
+  airtel_money: 'Airtel Money',
+  card_demo: 'Visa / Mastercard',
   cash_on_delivery: 'Cash on Delivery / Collection',
 };
 

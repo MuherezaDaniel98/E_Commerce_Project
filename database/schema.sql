@@ -243,11 +243,29 @@ CREATE TABLE IF NOT EXISTS notifications (
   role_target  TEXT NOT NULL DEFAULT 'admin',
   title        TEXT NOT NULL,
   message      TEXT NOT NULL,
+  link_url     TEXT NOT NULL DEFAULT '',
   is_read      BOOLEAN NOT NULL DEFAULT FALSE,
   created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_notifications_role_read ON notifications (role_target, is_read, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS price_alerts (
+  id                       SERIAL PRIMARY KEY,
+  user_id                  INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  email                    TEXT NOT NULL,
+  product_id               INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+  target_price_ugx         INTEGER CHECK (target_price_ugx IS NULL OR target_price_ugx > 0),
+  baseline_price_ugx       INTEGER NOT NULL CHECK (baseline_price_ugx > 0),
+  status                   TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'triggered', 'paused')),
+  last_triggered_price_ugx INTEGER,
+  triggered_at             TIMESTAMPTZ,
+  created_at               TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at               TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_price_alerts_product_status ON price_alerts (product_id, status);
+CREATE INDEX IF NOT EXISTS idx_price_alerts_user ON price_alerts (user_id, email);
 
 CREATE TABLE IF NOT EXISTS audit_logs (
   id             SERIAL PRIMARY KEY,

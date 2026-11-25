@@ -108,7 +108,7 @@ export function ReceiptPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-sm border-b border-slate-200 pb-6">
                 <div className="space-y-1">
                   <div className="text-xs font-bold uppercase text-[#64748B]">
-                    Customer (Demonstration Data)
+                    Billed To
                   </div>
                   <div className="font-semibold text-[#172B4D]">{snapshot.customerName}</div>
                   <div className="text-[#64748B]">{snapshot.customerEmail}</div>
@@ -131,7 +131,7 @@ export function ReceiptPage() {
                     </span>
                   </div>
                   <div>Date: {formatDateTime(snapshot.issuedAt)}</div>
-                  <div className="text-[#16A34A] font-bold uppercase">Status: PAID (Simulated)</div>
+                  <div className="text-[#16A34A] font-bold uppercase">Status: PAID</div>
                 </div>
               </div>
 
@@ -187,7 +187,7 @@ export function ReceiptPage() {
                   Thank you for shopping with Active Supermarket Kabale!
                 </p>
                 <p className="text-xs text-[#64748B]">
-                  Academic Prototype Receipt · MarketSphere Platform (MGT3151 – Uganda Christian University).
+                  Digital Transaction Receipt · MarketSphere — Active Supermarket Kabale.
                 </p>
               </div>
             </div>

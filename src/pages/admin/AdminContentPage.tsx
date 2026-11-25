@@ -18,7 +18,7 @@ export function AdminContentPage() {
   const [slideImage, setSlideImage] = useState('/src/assets/images/hero_fresh_harvest_1795549633163.jpg');
 
   const [testName, setTestName] = useState('');
-  const [testRole, setTestRole] = useState('Kabale Town · Demo Review');
+  const [testRole, setTestRole] = useState('Kabale Town');
   const [testQuote, setTestQuote] = useState('');
   const [testRating, setTestRating] = useState(5);
 
@@ -147,7 +147,7 @@ export function AdminContentPage() {
               className="w-full h-9 px-3 rounded-lg border border-slate-200 bg-white text-sm"
             >
               <option value="true">Enabled in Checkout</option>
-              <option value="false">Disabled (Online Simulation Only)</option>
+              <option value="false">Disabled (Online Payments Only)</option>
             </select>
           </div>
           <div className="flex-1">
@@ -310,7 +310,7 @@ export function AdminContentPage() {
             onSubmit={handleCreateTestimonial}
             className="lg:col-span-5 bg-white border border-slate-200 rounded-xl p-5 space-y-3"
           >
-            <h2 className="font-display text-base font-bold text-[#172B4D]">Add Demo Testimonial</h2>
+            <h2 className="font-display text-base font-bold text-[#172B4D]">Add Customer Testimonial</h2>
             <div>
               <label className="block text-xs font-semibold mb-1">Customer Name *</label>
               <input

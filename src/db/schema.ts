@@ -233,8 +233,25 @@ export const notifications = pgTable('notifications', {
   roleTarget: text('role_target').default('admin').notNull(),
   title: text('title').notNull(),
   message: text('message').notNull(),
+  linkUrl: text('link_url').default('').notNull(),
   isRead: boolean('is_read').default(false).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const priceAlerts = pgTable('price_alerts', {
+  id: serial('id').primaryKey(),
+  userId: integer('user_id').references(() => users.id),
+  email: text('email').notNull(),
+  productId: integer('product_id')
+    .references(() => products.id)
+    .notNull(),
+  targetPriceUgx: integer('target_price_ugx'),
+  baselinePriceUgx: integer('baseline_price_ugx').notNull(),
+  status: text('status').default('active').notNull(), // 'active' | 'triggered' | 'paused'
+  lastTriggeredPriceUgx: integer('last_triggered_price_ugx'),
+  triggeredAt: timestamp('triggered_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
 export const auditLogs = pgTable('audit_logs', {
@@ -319,5 +336,16 @@ export const receiptsRelations = relations(receipts, ({ one }) => ({
   payment: one(payments, {
     fields: [receipts.paymentId],
     references: [payments.id],
+  }),
+}));
+
+export const priceAlertsRelations = relations(priceAlerts, ({ one }) => ({
+  user: one(users, {
+    fields: [priceAlerts.userId],
+    references: [users.id],
+  }),
+  product: one(products, {
+    fields: [priceAlerts.productId],
+    references: [products.id],
   }),
 }));

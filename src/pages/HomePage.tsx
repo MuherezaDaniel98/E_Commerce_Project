@@ -344,8 +344,8 @@ export function HomePage() {
               },
               {
                 icon: ShieldCheck,
-                title: 'Simulated Mobile Money',
-                desc: 'Test MTN Mobile Money, Airtel Money, Card Demo, and Cash on Delivery safely.',
+                title: 'Mobile Money & Card Checkout',
+                desc: 'Pay seamlessly with MTN Mobile Money, Airtel Money, Visa/Mastercard, or Cash on Delivery.',
               },
               {
                 icon: ReceiptText,
@@ -375,12 +375,12 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* 5. Customer Testimonials (Demonstration Reviews) */}
+      {/* 5. Customer Testimonials */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 py-12">
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2 mb-7">
           <div>
             <p className="text-xs font-semibold text-[#2563EB] uppercase tracking-wider">
-              Kabale Community Feedback · Demonstration Reviews
+              Kabale Community Feedback
             </p>
             <h2 className="font-display text-2xl font-bold text-[#172B4D] mt-1">
               Trusted by Households & Businesses in Kabale

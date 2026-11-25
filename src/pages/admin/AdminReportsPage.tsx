@@ -11,7 +11,7 @@ const REPORT_TYPES = [
   { key: 'inventory', title: 'Inventory Stock Report', desc: 'Current stock on hand, thresholds, and active flags.' },
   { key: 'products', title: 'Product Catalogue Report', desc: 'All SKUs, categories, regular and discount UGX pricing.' },
   { key: 'customers', title: 'Registered Customers Report', desc: 'Customer accounts, contact phones, and status.' },
-  { key: 'payments', title: 'Simulated Payment Transactions', desc: 'MTN, Airtel, Card Demo, and COD transaction ledger.' },
+  { key: 'payments', title: 'Payment Transactions', desc: 'MTN, Airtel, Card, and COD transaction ledger.' },
 ];
 
 export function AdminReportsPage() {

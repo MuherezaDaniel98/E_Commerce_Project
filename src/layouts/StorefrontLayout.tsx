@@ -1,4 +1,5 @@
 import {
+  Bell,
   Heart,
   LayoutDashboard,
   Mail,
@@ -10,7 +11,7 @@ import {
   User,
   X,
 } from 'lucide-react';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { BrandLogo } from '../components/BrandLogo.tsx';
@@ -19,7 +20,16 @@ import { ProductImage } from '../components/ProductImage.tsx';
 import { useAuth } from '../context/AuthContext.tsx';
 import { useCart } from '../context/CartContext.tsx';
 import { api } from '../services/api.ts';
-import { formatUgx } from '../utils/format.ts';
+import { formatDateTime, formatUgx } from '../utils/format.ts';
+
+interface CustomerNotification {
+  id: number;
+  title: string;
+  message: string;
+  linkUrl: string;
+  isRead: boolean;
+  createdAt: string;
+}
 
 interface Suggestion {
   id: number;
@@ -42,12 +52,43 @@ export function StorefrontLayout({ children }: { children: React.ReactNode }) {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [newsletterEmail, setNewsletterEmail] = useState('');
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [customerNotifications, setCustomerNotifications] = useState<CustomerNotification[]>([]);
   const searchRef = useRef<HTMLDivElement>(null);
+  const notifRef = useRef<HTMLDivElement>(null);
+
+  const loadCustomerNotifications = useCallback(async () => {
+    if (!user) {
+      setCustomerNotifications([]);
+      return;
+    }
+    try {
+      const res = await api.get('/customer/notifications');
+      setCustomerNotifications(res.data.notifications || []);
+    } catch {
+      // Ignore notification fetch failure
+    }
+  }, [user]);
+
+  useEffect(() => {
+    loadCustomerNotifications();
+    if (!user) return;
+    const onRefresh = () => loadCustomerNotifications();
+    window.addEventListener('marketsphere:alerts-changed', onRefresh);
+    const interval = setInterval(loadCustomerNotifications, 45000);
+    return () => {
+      window.removeEventListener('marketsphere:alerts-changed', onRefresh);
+      clearInterval(interval);
+    };
+  }, [user, loadCustomerNotifications]);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
         setShowSuggestions(false);
+      }
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setNotifOpen(false);
       }
     };
     document.addEventListener('mousedown', handler);
@@ -195,6 +236,93 @@ export function StorefrontLayout({ children }: { children: React.ReactNode }) {
 
           {/* Actions */}
           <div className="flex items-center gap-2 shrink-0">
+            {user && (
+              <div ref={notifRef} className="relative">
+                <button
+                  type="button"
+                  onClick={() => setNotifOpen((v) => !v)}
+                  aria-label="Price drop notifications"
+                  className="relative h-10 w-10 rounded-lg border border-slate-200 flex items-center justify-center text-[#172B4D] hover:border-[#2563EB] hover:text-[#2563EB] transition-colors"
+                >
+                  <Bell className="h-4 w-4" />
+                  {customerNotifications.filter((n) => !n.isRead).length > 0 && (
+                    <span className="absolute -top-1 -right-1 h-4 min-w-[16px] px-1 rounded-full bg-[#16A34A] text-white text-[10px] font-bold flex items-center justify-center tabular-nums">
+                      {customerNotifications.filter((n) => !n.isRead).length}
+                    </span>
+                  )}
+                </button>
+
+                {notifOpen && (
+                  <div className="absolute right-0 mt-2 w-80 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden z-50">
+                    <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+                      <span className="font-display text-xs font-bold uppercase tracking-wider text-[#123B70]">
+                        Price Drop Alerts
+                      </span>
+                      {customerNotifications.some((n) => !n.isRead) && (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            await api.patch('/customer/notifications/read-all');
+                            setCustomerNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+                          }}
+                          className="text-xs font-semibold text-[#2563EB] hover:underline"
+                        >
+                          Mark all read
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="max-h-72 overflow-y-auto divide-y divide-slate-100">
+                      {customerNotifications.length === 0 ? (
+                        <div className="px-4 py-6 text-center text-xs text-[#64748B]">
+                          No price drop alerts yet. Tap the bell on any product to track its price.
+                        </div>
+                      ) : (
+                        customerNotifications.slice(0, 8).map((n) => (
+                          <button
+                            key={n.id}
+                            type="button"
+                            onClick={async () => {
+                              if (!n.isRead) {
+                                await api.patch(`/customer/notifications/${n.id}/read`).catch(() => {});
+                                setCustomerNotifications((prev) =>
+                                  prev.map((item) => (item.id === n.id ? { ...item, isRead: true } : item))
+                                );
+                              }
+                              setNotifOpen(false);
+                              if (n.linkUrl) navigate(n.linkUrl);
+                            }}
+                            className={`w-full text-left px-4 py-3 hover:bg-[#EAF3FF]/60 transition-colors ${
+                              n.isRead ? 'bg-white' : 'bg-[#EAF3FF]/35'
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <span className="text-xs font-bold text-[#172B4D]">{n.title}</span>
+                              {!n.isRead && (
+                                <span className="h-2 w-2 rounded-full bg-[#16A34A] shrink-0 mt-1" />
+                              )}
+                            </div>
+                            <p className="text-xs text-[#64748B] mt-0.5 leading-snug">{n.message}</p>
+                            <div className="text-[11px] text-slate-400 mt-1">
+                              {formatDateTime(n.createdAt)}
+                            </div>
+                          </button>
+                        ))
+                      )}
+                    </div>
+
+                    <Link
+                      to="/account?tab=alerts"
+                      onClick={() => setNotifOpen(false)}
+                      className="block text-center py-2.5 border-t border-slate-100 text-xs font-semibold text-[#2563EB] hover:bg-slate-50"
+                    >
+                      Manage Price Alerts
+                    </Link>
+                  </div>
+                )}
+              </div>
+            )}
+
             <Link
               to="/account?tab=wishlist"
               aria-label="Wishlist"
@@ -395,7 +523,7 @@ export function StorefrontLayout({ children }: { children: React.ReactNode }) {
                 type="email"
                 value={newsletterEmail}
                 onChange={(e) => setNewsletterEmail(e.target.value)}
-                placeholder="you@example.com"
+                placeholder="Enter your email"
                 aria-label="Email for newsletter"
                 className="flex-1 min-w-0 h-10 px-3 rounded-lg bg-[#123B70] border border-blue-800 text-sm text-white placeholder:text-slate-400 focus:outline-none focus:border-[#38BDF8]"
               />
@@ -417,7 +545,6 @@ export function StorefrontLayout({ children }: { children: React.ReactNode }) {
             <span>
               © {new Date().getFullYear()} MarketSphere · Active Supermarket Kabale. All rights reserved.
             </span>
-            <span>Academic Prototype — MGT3151 E-Business, E-Commerce & E-Governance</span>
           </div>
         </div>
       </footer>

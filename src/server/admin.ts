@@ -1,4 +1,4 @@
-import { count, desc, eq, gte, sql } from 'drizzle-orm';
+import { and, count, desc, eq, gte, sql } from 'drizzle-orm';
 import express from 'express';
 import PDFDocument from 'pdfkit';
 import { z } from 'zod';
@@ -625,6 +625,7 @@ adminRouter.get('/notifications', async (_req, res, next) => {
     const rows = await db
       .select()
       .from(notifications)
+      .where(eq(notifications.roleTarget, 'admin'))
       .orderBy(desc(notifications.createdAt))
       .limit(25);
     res.json({ notifications: rows });
@@ -638,7 +639,7 @@ adminRouter.patch('/notifications/:id/read', async (req, res, next) => {
     await db
       .update(notifications)
       .set({ isRead: true })
-      .where(eq(notifications.id, Number(req.params.id)));
+      .where(and(eq(notifications.id, Number(req.params.id)), eq(notifications.roleTarget, 'admin')));
     res.json({ ok: true });
   } catch (err) {
     next(err);

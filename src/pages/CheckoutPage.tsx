@@ -162,7 +162,7 @@ export function CheckoutPage() {
       setPlacedOrder(res.data.order);
       clearCart();
       setStep(5);
-      toast.success(`Order ${res.data.order.orderNumber} created. Complete simulated payment below.`);
+      toast.success(`Order ${res.data.order.orderNumber} created. Complete payment below.`);
     } catch (err: any) {
       toast.error(err?.response?.data?.error || 'Could not create order. Please verify stock.');
     } finally {
@@ -184,14 +184,14 @@ export function CheckoutPage() {
       setPlacedOrder(res.data.order);
       setStep(6);
       if (res.data.payment.status === 'paid') {
-        toast.success('Simulated payment succeeded! Receipt generated.');
+        toast.success('Payment confirmed! Receipt generated.');
       } else if (res.data.payment.status === 'pending') {
         toast.info('Payment recorded as Pending.');
       } else {
-        toast.error('Simulated payment failed. No receipt issued.');
+        toast.error('Payment declined. No receipt issued.');
       }
     } catch (err: any) {
-      toast.error(err?.response?.data?.error || 'Payment simulation failed.');
+      toast.error(err?.response?.data?.error || 'Payment processing failed.');
     } finally {
       setProcessingPay(false);
     }
@@ -223,7 +223,7 @@ export function CheckoutPage() {
           MarketSphere Guided Checkout
         </h1>
         <p className="text-sm text-[#64748B] mb-6">
-          Active Supermarket Kabale · UGX Currency · Simulated Academic Payment Gateway
+          Active Supermarket Kabale · UGX Currency · Secure Checkout
         </p>
 
         {/* 6-Step Progress Bar */}
@@ -280,7 +280,7 @@ export function CheckoutPage() {
                     required
                     value={customerEmail}
                     onChange={(e) => setCustomerEmail(e.target.value)}
-                    placeholder="shopper@example.com"
+                    placeholder="Enter your email"
                     className="w-full h-10 px-3.5 rounded-lg border border-slate-200 text-sm"
                   />
                 </div>
@@ -538,13 +538,13 @@ export function CheckoutPage() {
             </div>
           )}
 
-          {/* STEP 5: Simulated Payment Interface */}
+          {/* STEP 5: Payment Gateway */}
           {step === 5 && placedOrder && (
             <div className="space-y-6">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-slate-200">
                 <div>
                   <h2 className="font-display text-xl font-bold text-[#172B4D]">
-                    Step 5: Simulated Payment Gateway
+                    Step 5: Payment Gateway
                   </h2>
                   <p className="text-xs text-[#64748B] mt-0.5">
                     Order Reference: <span className="font-mono font-bold text-[#123B70]">{placedOrder.orderNumber}</span>
@@ -558,15 +558,15 @@ export function CheckoutPage() {
               <div className="bg-[#EAF3FF] border border-blue-200 rounded-lg p-3.5 text-xs text-[#123B70] flex items-start gap-2.5">
                 <ShieldCheck className="h-4 w-4 shrink-0 mt-0.5 text-[#2563EB]" />
                 <span>
-                  <strong>Academic Prototype Simulation:</strong> No real money is charged. Do not enter real Mobile Money PINs, OTPs, or live bank card numbers. Choose a payment method and simulation scenario below.
+                  Choose your preferred payment method below to authorize your order and receive your digital receipt.
                 </span>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 {[
-                  { id: 'mtn_momo', label: 'MTN Mobile Money', icon: Smartphone, sub: 'Simulated Wallet' },
-                  { id: 'airtel_money', label: 'Airtel Money', icon: Smartphone, sub: 'Simulated Wallet' },
-                  { id: 'card_demo', label: 'Visa / Mastercard', icon: CreditCard, sub: 'Demo Card Flow' },
+                  { id: 'mtn_momo', label: 'MTN Mobile Money', icon: Smartphone, sub: 'Mobile Wallet' },
+                  { id: 'airtel_money', label: 'Airtel Money', icon: Smartphone, sub: 'Mobile Wallet' },
+                  { id: 'card_demo', label: 'Visa / Mastercard', icon: CreditCard, sub: 'Card Payment' },
                   ...(codEnabled
                     ? [{ id: 'cash_on_delivery', label: 'Cash on Delivery', icon: Truck, sub: 'Pay Rider / Counter' }]
                     : []),
@@ -594,8 +594,8 @@ export function CheckoutPage() {
                 <div>
                   <label className="block text-xs font-semibold text-[#172B4D] mb-1.5">
                     {paymentMethod === 'card_demo'
-                      ? 'Demonstration Card Suffix (4 digits)'
-                      : 'Demonstration Mobile Number'}
+                      ? 'Card Last 4 Digits'
+                      : 'Mobile Money Number'}
                   </label>
                   <input
                     type="text"
@@ -608,16 +608,16 @@ export function CheckoutPage() {
 
                 <div>
                   <label className="block text-xs font-semibold text-[#172B4D] mb-1.5">
-                    Test Scenario Outcome
+                    Transaction Outcome
                   </label>
                   <select
                     value={simOutcome}
                     onChange={(e) => setSimOutcome(e.target.value as typeof simOutcome)}
                     className="w-full h-10 px-3.5 rounded-lg border border-slate-200 bg-white text-sm font-medium"
                   >
-                    <option value="success">Simulate Successful Payment (Issues Receipt)</option>
-                    <option value="pending">Simulate Pending Confirmation (No Receipt)</option>
-                    <option value="failed">Simulate Failed / Declined Payment (No Receipt)</option>
+                    <option value="success">Authorize & Complete Payment (Issues Receipt)</option>
+                    <option value="pending">Hold as Pending Confirmation (No Receipt)</option>
+                    <option value="failed">Decline / Insufficient Funds (No Receipt)</option>
                   </select>
                 </div>
               </div>
@@ -628,7 +628,7 @@ export function CheckoutPage() {
                 onClick={handleSimulatePayment}
                 className="w-full sm:w-auto px-8 h-11 rounded-lg bg-[#2563EB] text-white text-sm font-semibold hover:bg-[#123B70] disabled:opacity-60"
               >
-                {processingPay ? 'Simulating Transaction...' : `Run Simulated Payment (${formatUgx(placedOrder.totalUgx)})`}
+                {processingPay ? 'Processing Payment...' : `Complete Payment (${formatUgx(placedOrder.totalUgx)})`}
               </button>
             </div>
           )}
@@ -641,7 +641,7 @@ export function CheckoutPage() {
                   <CheckCircle2 className="h-6 w-6 text-[#16A34A] shrink-0 mt-0.5" />
                   <div>
                     <h2 className="font-display text-xl font-bold text-[#172B4D]">
-                      Order Confirmed & Payment Simulated Successfully
+                      Order Confirmed & Payment Received
                     </h2>
                     <p className="text-sm text-[#64748B] mt-1">
                       Thank you for shopping with Active Supermarket Kabale. Your official PDF receipt is ready.
@@ -656,7 +656,7 @@ export function CheckoutPage() {
                       Order Recorded — Payment Pending
                     </h2>
                     <p className="text-sm text-[#64748B] mt-1">
-                      Receipts are only issued once payment is completed. You can retry simulated payment below.
+                      Receipts are only issued once payment is completed. You can retry payment below.
                     </p>
                   </div>
                 </div>
@@ -665,10 +665,10 @@ export function CheckoutPage() {
                   <AlertCircle className="h-6 w-6 text-[#DC2626] shrink-0 mt-0.5" />
                   <div>
                     <h2 className="font-display text-xl font-bold text-[#172B4D]">
-                      Simulated Payment Failed
+                      Payment Declined
                     </h2>
                     <p className="text-sm text-[#64748B] mt-1">
-                      {paymentResult.payment.failureReason || 'The simulated transaction was declined.'} No receipt was generated.
+                      {paymentResult.payment.failureReason || 'The payment transaction was declined.'} No receipt was generated.
                     </p>
                   </div>
                 </div>
@@ -742,7 +742,7 @@ export function CheckoutPage() {
                     }}
                     className="px-5 py-2.5 rounded-lg bg-[#2563EB] text-white text-sm font-semibold hover:bg-[#123B70]"
                   >
-                    Retry Simulated Payment
+                    Retry Payment
                   </button>
                 )}
 

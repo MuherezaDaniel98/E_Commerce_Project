@@ -164,7 +164,7 @@ export function AuthPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
+                placeholder="Enter your email"
                 className="w-full h-10 px-3 rounded-lg border border-slate-200 text-sm"
               />
             </div>

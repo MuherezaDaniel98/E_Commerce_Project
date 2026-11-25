@@ -1,8 +1,12 @@
 import {
+  Bell,
+  BellRing,
   Heart,
   LogOut,
   MapPin,
   Package,
+  Pause,
+  Play,
   Plus,
   Receipt,
   Trash2,
@@ -18,11 +22,11 @@ import { StorefrontLayout } from '../layouts/StorefrontLayout.tsx';
 import { api } from '../services/api.ts';
 import { formatDateTime, formatUgx, getStatusTextStyle } from '../utils/format.ts';
 
-type TabKey = 'orders' | 'receipts' | 'addresses' | 'wishlist' | 'profile';
+type TabKey = 'orders' | 'receipts' | 'alerts' | 'addresses' | 'wishlist' | 'profile';
 
 export function AccountPage() {
   const { user, loading, refreshProfile, logout } = useAuth();
-  const { toggleWishlist } = useCart();
+  const { toggleWishlist, refreshPriceAlerts } = useCart();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const initialTab = (searchParams.get('tab') as TabKey) || 'orders';
@@ -31,6 +35,8 @@ export function AccountPage() {
   const [orders, setOrders] = useState<any[]>([]);
   const [addresses, setAddresses] = useState<any[]>([]);
   const [wishlist, setWishlist] = useState<any[]>([]);
+  const [priceAlerts, setPriceAlerts] = useState<any[]>([]);
+  const [customerNotifications, setCustomerNotifications] = useState<any[]>([]);
 
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
@@ -45,6 +51,14 @@ export function AccountPage() {
     if (t) setTab(t);
   }, [searchParams]);
 
+  const loadAlertsAndNotifications = () => {
+    api.get('/price-alerts').then((r) => setPriceAlerts(r.data.alerts || [])).catch(() => {});
+    api
+      .get('/customer/notifications')
+      .then((r) => setCustomerNotifications(r.data.notifications || []))
+      .catch(() => {});
+  };
+
   useEffect(() => {
     if (!user) return;
     setFullName(user.fullName);
@@ -53,6 +67,7 @@ export function AccountPage() {
     api.get('/orders/my').then((r) => setOrders(r.data.orders || [])).catch(() => {});
     api.get('/addresses').then((r) => setAddresses(r.data.addresses || [])).catch(() => {});
     api.get('/wishlist').then((r) => setWishlist(r.data.items || [])).catch(() => {});
+    loadAlertsAndNotifications();
   }, [user]);
 
   if (!loading && !user) {
@@ -162,6 +177,7 @@ export function AccountPage() {
               {[
                 { key: 'orders', label: 'Order History & Tracking', icon: Package },
                 { key: 'receipts', label: 'Payment Receipts', icon: Receipt },
+                { key: 'alerts', label: 'Price Alerts', icon: Bell },
                 { key: 'addresses', label: 'Saved Addresses', icon: MapPin },
                 { key: 'wishlist', label: 'Wishlist', icon: Heart },
                 { key: 'profile', label: 'Profile & Settings', icon: UserIcon },
@@ -248,7 +264,7 @@ export function AccountPage() {
                 <h2 className="font-display text-lg font-bold text-[#172B4D]">Payment Receipts</h2>
                 {paidReceipts.length === 0 ? (
                   <p className="text-sm text-[#64748B]">
-                    Receipts appear here after a successful simulated payment.
+                    Receipts appear here after a successful payment.
                   </p>
                 ) : (
                   <div className="divide-y divide-slate-100">
@@ -283,6 +299,202 @@ export function AccountPage() {
                     ))}
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Price Alerts Tab */}
+            {tab === 'alerts' && (
+              <div className="space-y-6">
+                <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <h2 className="font-display text-lg font-bold text-[#172B4D]">
+                        Price Drop Notifications
+                      </h2>
+                      <p className="text-xs text-[#64748B]">
+                        Instant alerts whenever watched supermarket items drop in price.
+                      </p>
+                    </div>
+                    {customerNotifications.some((n) => !n.isRead) && (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await api.patch('/customer/notifications/read-all');
+                          setCustomerNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+                          window.dispatchEvent(new Event('marketsphere:alerts-changed'));
+                        }}
+                        className="text-xs font-semibold text-[#2563EB] hover:underline"
+                      >
+                        Mark all read
+                      </button>
+                    )}
+                  </div>
+
+                  {customerNotifications.length === 0 ? (
+                    <p className="text-sm text-[#64748B]">
+                      No price drop notifications yet. Click the bell icon on any product to start watching prices.
+                    </p>
+                  ) : (
+                    <div className="divide-y divide-slate-100">
+                      {customerNotifications.map((n) => (
+                        <div
+                          key={n.id}
+                          className={`py-3.5 px-3 rounded-lg flex flex-wrap items-start justify-between gap-3 ${
+                            n.isRead ? '' : 'bg-[#EAF3FF]/45'
+                          }`}
+                        >
+                          <div className="space-y-0.5 flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <BellRing className="h-4 w-4 text-[#16A34A] shrink-0" />
+                              <span className="font-semibold text-sm text-[#172B4D]">{n.title}</span>
+                              {!n.isRead && (
+                                <span className="text-[11px] font-bold uppercase text-[#16A34A]">New</span>
+                              )}
+                            </div>
+                            <p className="text-xs text-[#64748B] pl-6">{n.message}</p>
+                            <div className="text-[11px] text-slate-400 pl-6">
+                              {formatDateTime(n.createdAt)}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {n.linkUrl && (
+                              <Link
+                                to={n.linkUrl}
+                                onClick={async () => {
+                                  if (!n.isRead) {
+                                    await api.patch(`/customer/notifications/${n.id}/read`).catch(() => {});
+                                    window.dispatchEvent(new Event('marketsphere:alerts-changed'));
+                                  }
+                                }}
+                                className="px-3 py-1.5 rounded-lg bg-[#123B70] text-white text-xs font-semibold hover:bg-[#2563EB]"
+                              >
+                                View Deal
+                              </Link>
+                            )}
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                await api.delete(`/customer/notifications/${n.id}`);
+                                setCustomerNotifications((prev) => prev.filter((item) => item.id !== n.id));
+                                window.dispatchEvent(new Event('marketsphere:alerts-changed'));
+                              }}
+                              aria-label="Delete notification"
+                              className="p-1.5 text-slate-400 hover:text-[#DC2626]"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h2 className="font-display text-lg font-bold text-[#172B4D]">
+                      Watched Products ({priceAlerts.length})
+                    </h2>
+                    <Link to="/catalog" className="text-xs font-semibold text-[#2563EB] hover:underline">
+                      Browse Products
+                    </Link>
+                  </div>
+
+                  {priceAlerts.length === 0 ? (
+                    <p className="text-sm text-[#64748B]">
+                      You are not watching any products yet. Open any product and tap &ldquo;Price Alert&rdquo; to track price drops.
+                    </p>
+                  ) : (
+                    <div className="divide-y divide-slate-100">
+                      {priceAlerts.map((alert) => {
+                        const currentPrice = alert.discountPriceUgx ?? alert.priceUgx;
+                        return (
+                          <div
+                            key={alert.id}
+                            className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                          >
+                            <div className="flex items-center gap-3.5 min-w-0">
+                              <div className="h-14 w-14 rounded-lg overflow-hidden bg-[#F5F7FB] shrink-0">
+                                <ProductImage src={alert.imageUrl} alt={alert.productName} />
+                              </div>
+                              <div className="min-w-0">
+                                <Link
+                                  to={`/product/${alert.productSlug}`}
+                                  className="font-semibold text-sm text-[#172B4D] hover:text-[#2563EB] line-clamp-1"
+                                >
+                                  {alert.productName}
+                                </Link>
+                                <div className="text-xs text-[#64748B] mt-0.5 flex flex-wrap items-center gap-2 tabular-nums">
+                                  <span>Current: <strong className="text-[#123B70]">{formatUgx(currentPrice)}</strong></span>
+                                  <span>·</span>
+                                  <span>
+                                    {alert.targetPriceUgx
+                                      ? `Target: ${formatUgx(alert.targetPriceUgx)}`
+                                      : `Any drop below ${formatUgx(alert.baselinePriceUgx)}`}
+                                  </span>
+                                </div>
+                                <div className="text-xs mt-1 font-semibold">
+                                  {alert.status === 'triggered' ? (
+                                    <span className="text-[#16A34A]">
+                                      Price Dropped to {formatUgx(alert.lastTriggeredPriceUgx ?? currentPrice)}!
+                                    </span>
+                                  ) : alert.status === 'paused' ? (
+                                    <span className="text-[#64748B]">Paused</span>
+                                  ) : (
+                                    <span className="text-[#2563EB]">Watching for drop</span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2 shrink-0">
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  const nextStatus = alert.status === 'active' ? 'paused' : 'active';
+                                  await api.patch(`/price-alerts/${alert.id}`, { status: nextStatus });
+                                  loadAlertsAndNotifications();
+                                  await refreshPriceAlerts();
+                                  window.dispatchEvent(new Event('marketsphere:alerts-changed'));
+                                  toast.success(
+                                    nextStatus === 'active' ? 'Price alert activated.' : 'Price alert paused.'
+                                  );
+                                }}
+                                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-[#172B4D] hover:border-[#2563EB]"
+                              >
+                                {alert.status === 'active' ? (
+                                  <>
+                                    <Pause className="h-3.5 w-3.5" />
+                                    <span>Pause</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Play className="h-3.5 w-3.5" />
+                                    <span>{alert.status === 'triggered' ? 'Watch Again' : 'Resume'}</span>
+                                  </>
+                                )}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  await api.delete(`/price-alerts/${alert.id}`);
+                                  setPriceAlerts((prev) => prev.filter((item) => item.id !== alert.id));
+                                  await refreshPriceAlerts();
+                                  window.dispatchEvent(new Event('marketsphere:alerts-changed'));
+                                  toast.success('Price alert removed.');
+                                }}
+                                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-rose-200 text-xs font-semibold text-[#DC2626] hover:bg-rose-50"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                                <span>Remove</span>
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 

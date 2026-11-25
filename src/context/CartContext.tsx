@@ -29,6 +29,9 @@ interface CartContextValue {
   clearCart: () => void;
   wishlistIds: number[];
   toggleWishlist: (productId: number) => Promise<void>;
+  priceAlertProductIds: number[];
+  togglePriceAlert: (productId: number) => Promise<boolean>;
+  refreshPriceAlerts: () => Promise<void>;
 }
 
 const CartContext = createContext<CartContextValue | null>(null);
@@ -46,6 +49,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   });
   const [isDrawerOpen, setDrawerOpen] = useState(false);
   const [wishlistIds, setWishlistIds] = useState<number[]>([]);
+  const [priceAlertProductIds, setPriceAlertProductIds] = useState<number[]>([]);
 
   useEffect(() => {
     try {
@@ -55,9 +59,26 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }
   }, [items]);
 
+  const refreshPriceAlerts = useCallback(async () => {
+    if (!user) {
+      setPriceAlertProductIds([]);
+      return;
+    }
+    try {
+      const res = await api.get('/price-alerts');
+      const activeIds = (res.data.alerts || [])
+        .filter((a: { status: string }) => a.status === 'active')
+        .map((a: { productId: number }) => a.productId);
+      setPriceAlertProductIds(activeIds);
+    } catch {
+      // Ignore fetch errors when offline/unauthenticated
+    }
+  }, [user]);
+
   useEffect(() => {
     if (!user) {
       setWishlistIds([]);
+      setPriceAlertProductIds([]);
       return;
     }
     api
@@ -66,7 +87,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         setWishlistIds((res.data.items || []).map((w: { productId: number }) => w.productId));
       })
       .catch(() => {});
-  }, [user]);
+    refreshPriceAlerts();
+  }, [user, refreshPriceAlerts]);
 
   const addToCart = useCallback((product: ProductDTO, quantity = 1) => {
     if (product.quantityOnHand <= 0) {
@@ -149,6 +171,32 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     [user]
   );
 
+  const togglePriceAlert = useCallback(
+    async (productId: number): Promise<boolean> => {
+      if (!user) {
+        return false;
+      }
+      try {
+        const res = await api.post('/price-alerts/toggle', { productId });
+        const watching = Boolean(res.data.watching);
+        setPriceAlertProductIds((prev) =>
+          watching ? [...new Set([...prev, productId])] : prev.filter((id) => id !== productId)
+        );
+        toast.success(
+          watching
+            ? 'Price alert enabled! You will be notified when the price drops.'
+            : 'Price alert removed.'
+        );
+        window.dispatchEvent(new Event('marketsphere:alerts-changed'));
+        return true;
+      } catch {
+        toast.error('Unable to update price alert.');
+        return false;
+      }
+    },
+    [user]
+  );
+
   const totalCount = items.reduce((sum, i) => sum + i.quantity, 0);
   const subtotalUgx = items.reduce((sum, i) => sum + i.unitPriceUgx * i.quantity, 0);
 
@@ -166,6 +214,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         clearCart,
         wishlistIds,
         toggleWishlist,
+        priceAlertProductIds,
+        togglePriceAlert,
+        refreshPriceAlerts,
       }}
     >
       {children}

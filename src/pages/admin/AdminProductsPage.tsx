@@ -127,8 +127,13 @@ export function AdminProductsPage() {
       };
 
       if (editingId) {
-        await api.put(`/products/${editingId}`, payload);
-        toast.success('Product updated.');
+        const res = await api.put(`/products/${editingId}`, payload);
+        const triggered = Number(res.data?.priceAlertsTriggered || 0);
+        if (triggered > 0) {
+          toast.success(`Product updated. ${triggered} customer price alert${triggered > 1 ? 's' : ''} triggered!`);
+        } else {
+          toast.success('Product updated.');
+        }
       } else {
         await api.post('/products', payload);
         toast.success('Product created.');

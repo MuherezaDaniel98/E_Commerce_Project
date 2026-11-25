@@ -583,7 +583,7 @@ async function runSeed() {
   await db.insert(testimonials).values([
     {
       customerName: 'Ainomugisha Grace',
-      roleOrLocation: 'Makanga Hill, Kabale · Demo Review',
+      roleOrLocation: 'Makanga Hill, Kabale',
       rating: 5,
       quote:
         'Ordering weekly groceries online from Active Supermarket Kabale saves me the afternoon traffic along Main Street. My delivery arrived in under two hours with a clean PDF receipt.',
@@ -592,16 +592,16 @@ async function runSeed() {
     },
     {
       customerName: 'Tumwesigye Ivan',
-      roleOrLocation: 'Kabale University Staff · Demo Review',
+      roleOrLocation: 'Kabale University Staff',
       rating: 5,
       quote:
-        'I love placing an order between lectures and collecting it packed at the Main Street pickup counter. Stock availability is accurate and Mobile Money simulation works smoothly.',
+        'I love placing an order between lectures and collecting it packed at the Main Street pickup counter. Stock availability is accurate and Mobile Money checkout works smoothly.',
       isDemo: true,
       isActive: true,
     },
     {
       customerName: 'Kiconco Sarah',
-      roleOrLocation: 'Kigongi Residence, Kabale · Demo Review',
+      roleOrLocation: 'Kigongi Residence, Kabale',
       rating: 5,
       quote:
         'The fresh produce and bakery loaves are consistently crisp and well-packaged. Being able to track my order status step by step gives great peace of mind.',
@@ -610,7 +610,7 @@ async function runSeed() {
     },
     {
       customerName: 'Byaruhanga Moses',
-      roleOrLocation: 'Kikungiri Business Owner · Demo Review',
+      roleOrLocation: 'Kikungiri Business Owner',
       rating: 4,
       quote:
         'We buy mineral water packs and cleaning supplies for our guesthouse every fortnight. Having downloadable receipts makes our bookkeeping much faster.',
@@ -877,7 +877,7 @@ async function runSeed() {
         amountUgx: total,
         status: spec.paymentStatus,
         simulatedAccountMask: spec.method === 'card_demo' ? '•••• 4242' : spec.customer.phone,
-        failureReason: spec.paymentStatus === 'failed' ? 'Simulated insufficient wallet balance' : null,
+        failureReason: spec.paymentStatus === 'failed' ? 'Insufficient wallet balance' : null,
         paidAt: spec.paymentStatus === 'paid' ? orderDate : null,
         createdAt: orderDate,
       })

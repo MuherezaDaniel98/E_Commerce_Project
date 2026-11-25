@@ -1,6 +1,19 @@
-import { ArrowLeft, Heart, Minus, Plus, ShieldCheck, ShoppingCart, Star, Truck } from 'lucide-react';
-import React, { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import {
+  ArrowLeft,
+  Bell,
+  BellRing,
+  CheckCircle2,
+  Heart,
+  Minus,
+  Plus,
+  ShieldCheck,
+  ShoppingCart,
+  Star,
+  Trash2,
+  Truck,
+} from 'lucide-react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Link, useLocation, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ProductCard } from '../components/ProductCard.tsx';
 import { ProductImage } from '../components/ProductImage.tsx';
@@ -18,10 +31,21 @@ interface ReviewItem {
   createdAt: string;
 }
 
+interface PriceAlertRecord {
+  id: number;
+  productId: number;
+  email: string;
+  targetPriceUgx: number | null;
+  baselinePriceUgx: number;
+  status: 'active' | 'triggered' | 'paused';
+  lastTriggeredPriceUgx: number | null;
+}
+
 export function ProductDetailPage() {
   const { idOrSlug } = useParams();
+  const location = useLocation();
   const { user } = useAuth();
-  const { addToCart, wishlistIds, toggleWishlist } = useCart();
+  const { addToCart, wishlistIds, toggleWishlist, refreshPriceAlerts } = useCart();
 
   const [product, setProduct] = useState<ProductDTO | null>(null);
   const [reviews, setReviews] = useState<ReviewItem[]>([]);
@@ -33,19 +57,124 @@ export function ProductDetailPage() {
   const [reviewComment, setReviewComment] = useState('');
   const [submittingReview, setSubmittingReview] = useState(false);
 
+  const [alertOpen, setAlertOpen] = useState(location.hash === '#price-alert');
+  const [existingAlert, setExistingAlert] = useState<PriceAlertRecord | null>(null);
+  const [watcherCount, setWatcherCount] = useState(0);
+  const [alertMode, setAlertMode] = useState<'any' | 'target'>('any');
+  const [targetPriceInput, setTargetPriceInput] = useState('');
+  const [alertEmail, setAlertEmail] = useState('');
+  const [savingAlert, setSavingAlert] = useState(false);
+
+  useEffect(() => {
+    if (user?.email) {
+      setAlertEmail(user.email);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (location.hash === '#price-alert') {
+      setAlertOpen(true);
+    }
+  }, [location.hash]);
+
+  const loadProductAlertStatus = useCallback(async (productId: number) => {
+    try {
+      const res = await api.get(`/price-alerts/product/${productId}`);
+      setWatcherCount(Number(res.data.watcherCount || 0));
+      const found = res.data.alert as PriceAlertRecord | null;
+      setExistingAlert(found);
+      if (found) {
+        if (found.targetPriceUgx) {
+          setAlertMode('target');
+          setTargetPriceInput(String(found.targetPriceUgx));
+        } else {
+          setAlertMode('any');
+          setTargetPriceInput('');
+        }
+      }
+    } catch {
+      // Ignore alert fetch errors
+    }
+  }, []);
+
   useEffect(() => {
     setLoading(true);
     setQty(1);
+    setExistingAlert(null);
     api
       .get(`/products/${idOrSlug}`)
       .then((res) => {
         setProduct(res.data.product);
         setReviews(res.data.reviews || []);
         setRelated(res.data.related || []);
+        if (res.data.product?.id) {
+          loadProductAlertStatus(res.data.product.id);
+        }
       })
       .catch(() => setProduct(null))
       .finally(() => setLoading(false));
-  }, [idOrSlug]);
+  }, [idOrSlug, loadProductAlertStatus]);
+
+  useEffect(() => {
+    if (product?.id) {
+      loadProductAlertStatus(product.id);
+    }
+  }, [user, product?.id, loadProductAlertStatus]);
+
+  const handleSavePriceAlert = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!product) return;
+
+    const effective = product.discountPriceUgx ?? product.priceUgx;
+    const parsedTarget =
+      alertMode === 'target' ? Math.round(Number(targetPriceInput || 0)) : null;
+
+    if (alertMode === 'target' && (!parsedTarget || parsedTarget <= 0 || parsedTarget >= effective)) {
+      toast.error(`Enter a target price lower than ${formatUgx(effective)}.`);
+      return;
+    }
+
+    setSavingAlert(true);
+    try {
+      const res = await api.post('/price-alerts', {
+        productId: product.id,
+        targetPriceUgx: parsedTarget,
+        email: user ? undefined : alertEmail.trim(),
+      });
+      setExistingAlert(res.data.alert);
+      await loadProductAlertStatus(product.id);
+      await refreshPriceAlerts();
+      window.dispatchEvent(new Event('marketsphere:alerts-changed'));
+      toast.success(
+        res.data.updated
+          ? 'Price alert updated.'
+          : 'Price alert activated! We will notify you when the price drops.'
+      );
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error || 'Could not save price alert.');
+    } finally {
+      setSavingAlert(false);
+    }
+  };
+
+  const handleRemovePriceAlert = async () => {
+    if (!existingAlert || !product) return;
+    setSavingAlert(true);
+    try {
+      await api.delete(`/price-alerts/${existingAlert.id}`);
+      setExistingAlert(null);
+      setAlertMode('any');
+      setTargetPriceInput('');
+      await loadProductAlertStatus(product.id);
+      await refreshPriceAlerts();
+      window.dispatchEvent(new Event('marketsphere:alerts-changed'));
+      toast.success('Price alert removed.');
+    } catch {
+      toast.error('Could not remove price alert.');
+    } finally {
+      setSavingAlert(false);
+    }
+  };
 
   const handleReviewSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -209,6 +338,26 @@ export function ProductDetailPage() {
 
                 <button
                   type="button"
+                  onClick={() => setAlertOpen((v) => !v)}
+                  aria-label="Set price drop alert"
+                  className={`h-11 px-4 rounded-lg border flex items-center justify-center gap-2 text-sm font-medium transition-colors ${
+                    existingAlert?.status === 'active'
+                      ? 'bg-[#123B70] border-[#123B70] text-white'
+                      : 'border-slate-200 text-[#172B4D] hover:border-[#2563EB] hover:text-[#2563EB]'
+                  }`}
+                >
+                  {existingAlert?.status === 'active' ? (
+                    <BellRing className="h-4 w-4" />
+                  ) : (
+                    <Bell className="h-4 w-4" />
+                  )}
+                  <span className="hidden sm:inline">
+                    {existingAlert?.status === 'active' ? 'Alert Active' : 'Price Alert'}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
                   onClick={() => toggleWishlist(product.id)}
                   aria-label="Add to wishlist"
                   className={`h-11 px-4 rounded-lg border flex items-center justify-center gap-2 text-sm font-medium transition-colors ${
@@ -220,6 +369,145 @@ export function ProductDetailPage() {
                   <Heart className={`h-4 w-4 ${isWishlisted ? 'fill-current' : ''}`} />
                 </button>
               </div>
+
+              {(alertOpen || existingAlert) && (
+                <div
+                  id="price-alert"
+                  className="bg-[#EAF3FF]/70 border border-blue-200 rounded-xl p-4 space-y-3"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <BellRing className="h-4 w-4 text-[#2563EB]" />
+                      <h3 className="font-display text-sm font-bold text-[#123B70]">
+                        Price Drop Alert
+                      </h3>
+                    </div>
+                    {watcherCount > 0 && (
+                      <span className="text-xs font-medium text-[#64748B] tabular-nums">
+                        {watcherCount} shopper{watcherCount === 1 ? '' : 's'} watching
+                      </span>
+                    )}
+                  </div>
+
+                  {existingAlert?.status === 'triggered' && (
+                    <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2 text-xs text-[#16A34A] flex items-center gap-2 font-medium">
+                      <CheckCircle2 className="h-4 w-4 shrink-0" />
+                      <span>
+                        Price dropped to {formatUgx(existingAlert.lastTriggeredPriceUgx ?? effectivePrice)}!
+                        Re-activate below to watch for an even lower price.
+                      </span>
+                    </div>
+                  )}
+
+                  {existingAlert?.status === 'active' && (
+                    <p className="text-xs text-[#123B70] font-medium">
+                      Active alert:{' '}
+                      {existingAlert.targetPriceUgx
+                        ? `Notify when price reaches ${formatUgx(existingAlert.targetPriceUgx)} or less`
+                        : `Notify on any drop below ${formatUgx(existingAlert.baselinePriceUgx)}`}
+                    </p>
+                  )}
+
+                  <form onSubmit={handleSavePriceAlert} className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => setAlertMode('any')}
+                        className={`py-2 px-3 rounded-lg border font-semibold text-left transition-colors ${
+                          alertMode === 'any'
+                            ? 'bg-white border-[#2563EB] text-[#123B70]'
+                            : 'bg-white/60 border-slate-200 text-[#64748B]'
+                        }`}
+                      >
+                        Any price drop
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAlertMode('target');
+                          if (!targetPriceInput) {
+                            setTargetPriceInput(String(Math.round(effectivePrice * 0.9)));
+                          }
+                        }}
+                        className={`py-2 px-3 rounded-lg border font-semibold text-left transition-colors ${
+                          alertMode === 'target'
+                            ? 'bg-white border-[#2563EB] text-[#123B70]'
+                            : 'bg-white/60 border-slate-200 text-[#64748B]'
+                        }`}
+                      >
+                        Set target price (UGX)
+                      </button>
+                    </div>
+
+                    {alertMode === 'target' && (
+                      <div className="space-y-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <input
+                            type="number"
+                            min={100}
+                            max={effectivePrice - 1}
+                            required
+                            value={targetPriceInput}
+                            onChange={(e) => setTargetPriceInput(e.target.value)}
+                            placeholder={`Under ${effectivePrice}`}
+                            className="flex-1 min-w-[140px] h-9 px-3 rounded-lg border border-slate-200 bg-white text-sm tabular-nums"
+                          />
+                          {[10, 15, 25].map((pct) => {
+                            const suggested = Math.round((effectivePrice * (100 - pct)) / 100);
+                            return (
+                              <button
+                                key={pct}
+                                type="button"
+                                onClick={() => setTargetPriceInput(String(suggested))}
+                                className="h-9 px-2.5 rounded-lg border border-blue-200 bg-white text-xs font-semibold text-[#123B70] hover:border-[#2563EB]"
+                              >
+                                -{pct}%
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {!user && (
+                      <input
+                        type="email"
+                        required
+                        value={alertEmail}
+                        onChange={(e) => setAlertEmail(e.target.value)}
+                        placeholder="Enter your email"
+                        aria-label="Email for price drop notification"
+                        className="w-full h-9 px-3 rounded-lg border border-slate-200 bg-white text-sm"
+                      />
+                    )}
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="submit"
+                        disabled={savingAlert}
+                        className="h-9 px-4 rounded-lg bg-[#123B70] text-white text-xs font-semibold hover:bg-[#2563EB] disabled:opacity-60"
+                      >
+                        {savingAlert
+                          ? 'Saving...'
+                          : existingAlert?.status === 'active'
+                          ? 'Update Price Alert'
+                          : 'Activate Price Alert'}
+                      </button>
+                      {existingAlert && user && (
+                        <button
+                          type="button"
+                          onClick={handleRemovePriceAlert}
+                          disabled={savingAlert}
+                          className="h-9 px-3 rounded-lg border border-rose-200 bg-white text-xs font-semibold text-[#DC2626] inline-flex items-center gap-1 hover:bg-rose-50"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          <span>Remove</span>
+                        </button>
+                      )}
+                    </div>
+                  </form>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-[#64748B] bg-[#F5F7FB] rounded-lg p-3.5">
                 <div className="flex items-center gap-2">

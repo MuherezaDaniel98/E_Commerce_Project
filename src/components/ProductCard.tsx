@@ -1,5 +1,7 @@
-import { Eye, Heart, ShoppingCart, Star } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Bell, BellRing, Eye, Heart, ShoppingCart, Star } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
+import { useAuth } from '../context/AuthContext.tsx';
 import { useCart } from '../context/CartContext.tsx';
 import { ProductDTO, formatUgx } from '../utils/format.ts';
 import { ProductImage } from './ProductImage.tsx';
@@ -10,8 +12,11 @@ interface ProductCardProps {
 }
 
 export function ProductCard({ product, onQuickView }: ProductCardProps) {
-  const { addToCart, wishlistIds, toggleWishlist } = useCart();
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const { addToCart, wishlistIds, toggleWishlist, priceAlertProductIds, togglePriceAlert } = useCart();
   const isWishlisted = wishlistIds.includes(product.id);
+  const isWatchingPrice = priceAlertProductIds.includes(product.id);
   const effectivePrice = product.discountPriceUgx ?? product.priceUgx;
   const hasDiscount = product.discountPriceUgx !== null && product.discountPriceUgx < product.priceUgx;
   const discountPct = hasDiscount
@@ -20,6 +25,15 @@ export function ProductCard({ product, onQuickView }: ProductCardProps) {
 
   const isOutOfStock = product.quantityOnHand <= 0;
   const isLowStock = !isOutOfStock && product.quantityOnHand <= product.lowStockThreshold;
+
+  const handlePriceAlertClick = async () => {
+    if (!user) {
+      toast.info('Set your target price or email alert on the product page.');
+      navigate(`/product/${product.slug}#price-alert`);
+      return;
+    }
+    await togglePriceAlert(product.id);
+  };
 
   return (
     <article className="group bg-white border border-slate-200 rounded-xl overflow-hidden flex flex-col transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
@@ -44,6 +58,19 @@ export function ProductCard({ product, onQuickView }: ProductCardProps) {
               <Eye className="h-4 w-4" />
             </button>
           )}
+          <button
+            type="button"
+            onClick={handlePriceAlertClick}
+            title={isWatchingPrice ? 'Price alert active — click to remove' : 'Notify me when price drops'}
+            aria-label={`Price drop alert for ${product.name}`}
+            className={`h-9 w-9 rounded-lg border flex items-center justify-center transition-colors ${
+              isWatchingPrice
+                ? 'bg-[#123B70] text-white border-[#123B70]'
+                : 'bg-white/95 text-[#172B4D] border-slate-200/80 hover:text-[#2563EB]'
+            }`}
+          >
+            {isWatchingPrice ? <BellRing className="h-4 w-4" /> : <Bell className="h-4 w-4" />}
+          </button>
           <button
             type="button"
             onClick={() => toggleWishlist(product.id)}

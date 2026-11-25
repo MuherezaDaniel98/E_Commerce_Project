@@ -5,6 +5,7 @@ import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 import { ensureSeeded } from './src/db/seed.ts';
 import { adminRouter } from './src/server/admin.ts';
+import { alertsRouter } from './src/server/alerts.ts';
 import { authRouter } from './src/server/auth.ts';
 import { catalogRouter } from './src/server/catalog.ts';
 import { ordersRouter } from './src/server/orders.ts';
@@ -47,6 +48,7 @@ app.use('/api', async (_req, _res, next) => {
 
 app.use('/api/auth', authLimiter, authRouter);
 app.use('/api', catalogRouter);
+app.use('/api', alertsRouter);
 app.use('/api', ordersRouter);
 app.use('/api/admin', adminRouter);
 

@@ -17,6 +17,7 @@ import {
   storeSettings,
   testimonials,
 } from '../db/schema.ts';
+import { triggerPriceAlertsForProduct } from './alerts.ts';
 import { type AuthRequest, requireAuth, requireRole } from './auth.ts';
 
 const uploadsDir = path.resolve(process.cwd(), 'uploads');
@@ -537,6 +538,12 @@ catalogRouter.put(
       }
 
       const updated = await db.transaction(async (tx) => {
+        const [existingProd] = await tx.select().from(products).where(eq(products.id, id));
+        if (!existingProd) return null;
+
+        const oldEffectivePrice = existingProd.discountPriceUgx ?? existingProd.priceUgx;
+        const newEffectivePrice = d.discountPriceUgx ?? d.priceUgx;
+
         const [prod] = await tx
           .update(products)
           .set({
@@ -555,8 +562,6 @@ catalogRouter.put(
           })
           .where(eq(products.id, id))
           .returning();
-
-        if (!prod) return null;
 
         const [inv] = await tx.select().from(inventory).where(eq(inventory.productId, id));
         if (inv) {
@@ -584,22 +589,36 @@ catalogRouter.put(
           }
         }
 
+        const triggeredCount = await triggerPriceAlertsForProduct(
+          tx,
+          prod.id,
+          prod.name,
+          prod.slug,
+          oldEffectivePrice,
+          newEffectivePrice
+        );
+
         await tx.insert(auditLogs).values({
           actorUserId: req.authUser!.id,
           actorEmail: req.authUser!.email,
           action: 'PRODUCT_UPDATED',
           entityType: 'product',
           entityId: String(id),
-          details: { name: prod.name },
+          details: {
+            name: prod.name,
+            oldEffectivePrice,
+            newEffectivePrice,
+            priceAlertsTriggered: triggeredCount,
+          },
         });
 
-        return prod;
+        return { prod, triggeredCount };
       });
 
       if (!updated) {
         return res.status(404).json({ error: 'Product not found.' });
       }
-      res.json({ product: updated });
+      res.json({ product: updated.prod, priceAlertsTriggered: updated.triggeredCount });
     } catch (err) {
       next(err);
     }
